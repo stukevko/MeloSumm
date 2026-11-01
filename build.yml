@@ -1,0 +1,36 @@
+name: MeloSumm bauen
+
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  windows:
+    name: Windows VST3
+    runs-on: windows-latest
+    steps:
+      - name: Code holen
+        uses: actions/checkout@v4
+
+      - name: Projekt konfigurieren
+        run: cmake -B build -A x64
+
+      - name: Plugin bauen
+        run: cmake --build build --config Release --parallel
+
+      - name: Dateien einsammeln
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path out | Out-Null
+          $vst3 = Get-ChildItem -Path build -Recurse -Directory -Filter "MeloSumm.vst3" | Where-Object { $_.FullName -match "Release" } | Select-Object -First 1
+          if (-not $vst3) { throw "MeloSumm.vst3 wurde nicht gefunden" }
+          Copy-Item -Recurse $vst3.FullName out/
+          $exe = Get-ChildItem -Path build -Recurse -File -Filter "MeloSumm.exe" | Where-Object { $_.FullName -match "Release" } | Select-Object -First 1
+          if ($exe) { Copy-Item $exe.FullName out/ }
+          Copy-Item README.md out/ANLEITUNG.md
+
+      - name: Download bereitstellen
+        uses: actions/upload-artifact@v4
+        with:
+          name: MeloSumm-Windows
+          path: out
